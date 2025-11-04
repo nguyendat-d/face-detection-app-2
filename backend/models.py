@@ -34,3 +34,14 @@ def login_user(data):
     )
     result = cursor.fetchone()
     return {"success": bool(result)}
+
+import os
+import mysql.connector
+
+def connect_db():
+    return mysql.connector.connect(
+        host=os.environ.get("DB_HOST", "localhost"),
+        user=os.environ.get("DB_USER", "root"),
+        password=os.environ.get("DB_PASSWORD", "thanhdat12345"),
+        database=os.environ.get("DB_NAME", "face_auth")
+    )
