@@ -2,55 +2,69 @@ pipeline {
   agent any
 
   environment {
-    DOCKERHUB_CREDENTIALS = 'dockerhub-creds'    // credential ID in Jenkins
-    SSH_CREDENTIALS = 'deploy-ssh'                // SSH credential ID in Jenkins
-    DOCKERHUB_USER = 'your_dockerhub_username'   // change value
-    BACKEND_IMAGE = "${DOCKERHUB_USER}/face-backend"
-    FRONTEND_IMAGE = "${DOCKERHUB_USER}/face-frontend"
+    DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds')
+    DOCKER_USERNAME = 'your-dockerhub-username'  // Thay bằng username Docker Hub của bạn
+    BACKEND_IMAGE = "${DOCKER_USERNAME}/face-backend"
+    FRONTEND_IMAGE = "${DOCKER_USERNAME}/face-frontend"
   }
 
   stages {
     stage('Checkout') {
-      steps { checkout scm }
+      steps {
+        checkout scm
+      }
     }
 
-    stage('Build Images') {
+    stage('Build Docker Images') {
       steps {
         script {
-          def shortCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-          env.IMAGE_TAG = shortCommit
-          sh "docker build -t ${BACKEND_IMAGE}:latest -t ${BACKEND_IMAGE}:${IMAGE_TAG} ./backend"
-          sh "docker build -t ${FRONTEND_IMAGE}:latest -t ${FRONTEND_IMAGE}:${IMAGE_TAG} ./frontend"
+          // Build Backend
+          docker.build("${BACKEND_IMAGE}:${BUILD_NUMBER}", "./backend")
+          docker.build("${BACKEND_IMAGE}:latest", "./backend")
+
+          // Build Frontend
+          docker.build("${FRONTEND_IMAGE}:${BUILD_NUMBER}", "./frontend")
+          docker.build("${FRONTEND_IMAGE}:latest", "./frontend")
         }
       }
     }
 
-    stage('Push to Docker Hub') {
+    stage('Push to DockerHub') {
       steps {
-        withCredentials([usernamePassword(credentialsId: env.DOCKERHUB_CREDENTIALS, usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
-          sh "echo $DH_PASS | docker login -u $DH_USER --password-stdin"
-          sh "docker push ${BACKEND_IMAGE}:${IMAGE_TAG}"
+        script {
+          // Login to DockerHub
+          sh "echo ${DOCKERHUB_CREDENTIALS_PSW} | docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin"
+
+          // Push Backend Images
+          sh "docker push ${BACKEND_IMAGE}:${BUILD_NUMBER}"
           sh "docker push ${BACKEND_IMAGE}:latest"
-          sh "docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}"
+
+          // Push Frontend Images
+          sh "docker push ${FRONTEND_IMAGE}:${BUILD_NUMBER}"
           sh "docker push ${FRONTEND_IMAGE}:latest"
         }
       }
     }
 
-    stage('Deploy to Server') {
+    stage('Deploy') {
       steps {
-        sshagent (credentials: [env.SSH_CREDENTIALS]) {
-          sh """
-            ssh -o StrictHostKeyChecking=no user@DEPLOY_IP '
-              cd /home/user/deploy-face && \
-              docker-compose pull && \
-              docker-compose up -d --remove-orphans
-            '
-          """
+        script {
+          // Deploy using docker-compose
+          sshagent(['deploy-server-key']) {
+            sh '''
+                ssh -o StrictHostKeyChecking=no user@your-server "cd /path/to/app && \
+                docker-compose pull && \
+                docker-compose up -d"
+            '''
+          }
         }
       }
     }
   }
 
-  post { always { sh 'docker logout || true' } }
+  post {
+    always {
+      sh 'docker logout'
+    }
+  }
 }
