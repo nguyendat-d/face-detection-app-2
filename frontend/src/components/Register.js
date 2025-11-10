@@ -12,6 +12,8 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const navigate = useNavigate();
 
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
   const register = async () => {
     if (!email.endsWith('@gmail.com')) {
       alert('Email must be a valid @gmail.com address!');
@@ -24,7 +26,7 @@ export default function Register() {
     }
 
     try {
-      const res = await axios.post('http://localhost:5000/register', {
+      const res = await axios.post(`${API_URL}/register`, {
         firstName,
         lastName,
         email,

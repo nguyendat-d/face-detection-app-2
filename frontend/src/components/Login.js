@@ -8,13 +8,15 @@ export default function Login({ setLoggedIn }) {
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
   const login = async () => {
     if (emailOrUsername.includes('@') && !emailOrUsername.endsWith('@gmail.com')) {
       alert('Email must be a valid @gmail.com address!');
       return;
     }
 
-    const res = await axios.post('http://localhost:5000/login', {
+    const res = await axios.post(`${API_URL}/login`, {
       emailOrUsername,
       password,
     });
